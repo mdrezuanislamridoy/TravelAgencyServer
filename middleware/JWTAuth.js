@@ -1,26 +1,30 @@
-const jsonwebtoken = require("jsonwebtoken");
-const User = require("../models/UserModel");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const User = require("../Authentication/UserModel");
 
-exports.IsUser = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
+const IsUser = async (req, res, next) => {
   try {
-    const decoded = jsonwebtoken.verify(token, process.env.JWT_SECRET);
+    const token = req.cookies.token;
 
-    const user = await User.findById(decoded.id).select("-password");
-    if (!user) {
-      return res.status(401).json({ message: "Unauthorized" });
+    if (!token) {
+      return res.status(401).json({ message: "No token provided" });
     }
-    req.user = user;
 
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded) {
+      return res.status(401).json({ message: "Invalid token" });
+    }
+
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    req.userId = user;
     next();
   } catch (error) {
-    return res.status(401).json({ message: "Invalid token" });
+    res.status(401).json({ message: "Invalid token" });
   }
 };
+
+module.exports = { IsUser };
