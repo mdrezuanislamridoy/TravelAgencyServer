@@ -1,4 +1,4 @@
-const Tour = require("../models/TourModel");
+const Tour = require("./TourModel");
 
 exports.addTour = async (req, res) => {
   try {
@@ -36,7 +36,7 @@ exports.getTours = async (req, res) => {
 
 exports.getAgencyTours = async (req, res) => {
   try {
-    const agencyId = req.body;
+    const { agencyId } = req.params;
     const tours = await Tour.find({ agencyId });
     res.status(200).json({ tours });
   } catch (error) {
@@ -46,7 +46,7 @@ exports.getAgencyTours = async (req, res) => {
 
 exports.getSingleTour = async (req, res) => {
   try {
-    const tourId = req.body;
+    const { tourId } = req.params;
     const tour = await Tour.findOne({ tourId });
     res.status(200).json({ tour });
   } catch (error) {

@@ -1,16 +1,31 @@
-const Booking = require("../models/BookingModel");
+const Booking = require("./BookingModel");
+const User = require("../../Authentication/UserModel");
 exports.addBooking = async (req, res) => {
+  const userId = req.user._id;
   try {
-    const { userId, tourId, agencyId, numberOfTraveler, tourDate, totalPrice } =
-      req.body;
+    const {
+      tourName,
+      tourLocation,
+
+      tourId,
+      agencyId,
+      numberOfTraveler,
+      tourDate,
+      totalPrice,
+      paymentTime,
+    } = req.body;
     if (
       !userId ||
       !tourId ||
       !agencyId ||
       !numberOfTraveler ||
       !tourDate ||
-      !totalPrice
+      !totalPrice ||
+      !tourName ||
+      !tourLocation ||
+      !paymentTime
     ) {
+      console.log("missing something");
       return res.status(400).json({ message: "Something is missing" });
     }
 
@@ -21,12 +36,26 @@ exports.addBooking = async (req, res) => {
       numberOfTraveler,
       tourDate,
       totalPrice,
+      tourName,
+      tourLocation,
     });
+    console.log("Booking Success");
+
+    const updateUser = await User.findByIdAndUpdate(userId, {
+      $push: { bookings: newBooking._id },
+    });
+    console.log("user updated");
+
+    await updateUser.save();
 
     await newBooking.save();
-    res
-      .status(200)
-      .json({ message: "Booking successful!", bookingId: newBooking._id });
+    console.log("Booking success");
+
+    res.status(200).json({
+      message: "Booking successful!",
+      bookingId: newBooking._id,
+      paymentTime,
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

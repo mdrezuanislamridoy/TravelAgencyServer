@@ -1,4 +1,4 @@
-const { getAllReviews, addReview } = require("../controllers/ReviewController");
+const { getAllReviews, addReview } = require("./ReviewController");
 
 const ReviewRoute = require("express").Router();
 

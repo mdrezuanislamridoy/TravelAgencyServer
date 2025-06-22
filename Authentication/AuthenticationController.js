@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const User = require("../models/UserModel");
+const User = require("./UserModel");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
 
@@ -22,6 +22,7 @@ exports.verifyCode = async (req, res) => {
   if (isUser) {
     return res.status(400).send({ message: "User already exists" });
   }
+  console.log(isUser);
 
   const verificationCode = Math.floor(
     100000 + Math.random() * 900000
@@ -37,13 +38,13 @@ exports.verifyCode = async (req, res) => {
     subject: `Your verification code ${verificationCode}`,
     text: `Use the code to verify your email: ${verificationCode}`,
   };
-
   transporter.sendMail(mailOptions, (error, info) => {
     if (error) {
       return res
         .status(500)
         .json({ message: "Failed to send verification email" });
     }
+
     res.status(200).json({
       message: "Verification email sent. Please check your inbox.",
       token,
@@ -53,9 +54,7 @@ exports.verifyCode = async (req, res) => {
 
 exports.SignUp = async (req, res) => {
   try {
-    console.log("Received Data:", req.body);
-
-    const { name, email, password, enteredCode, token, role } = req.body;
+    const { name, password, enteredCode, token, role } = req.body;
 
     if (!token) {
       return res.status(400).send({ message: "No token provided" });
@@ -66,16 +65,13 @@ exports.SignUp = async (req, res) => {
         return res.status(400).send({ message: "Invalid or expired token" });
       }
 
-      const { verificationCode, email: tokenEmail } = decoded;
+      const { verificationCode, email } = decoded;
 
-      if (email !== tokenEmail) {
-        return res.status(400).send({ message: "Email does not match" });
-      }
       if (enteredCode !== verificationCode) {
         return res.status(400).send({ message: "Email verification failed" });
       }
 
-      if (!name || !email || !password || !role) {
+      if (!name || !password || !role) {
         return res.status(400).send({ message: "All fields are required" });
       }
 
@@ -99,6 +95,12 @@ exports.SignUp = async (req, res) => {
         { expiresIn: "24h" }
       );
 
+      res.cookie("token", authToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Strict",
+      });
+
       await newUser.save();
       console.log("✅ User registered successfully.");
 
@@ -116,10 +118,16 @@ exports.LogIn = async (req, res) => {
       return res.status(400).send({ message: "All fields are required" });
     }
 
-    const user = await User.findOne({ email }).select("-password");
+    const user = await User.findOne({ email });
 
     if (!user) {
       return res.status(400).send({ message: "User doesn't exists" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({ message: "Wrong Password" });
     }
 
     const token = await jwt.sign(
@@ -127,33 +135,41 @@ exports.LogIn = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
-
-    res.status(201).json({ user, message: "Login successful", token });
-    console.log(user);
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+    });
+    res.status(200).json({
+      message: "Login successful",
+      token,
+      user,
+    });
   } catch (error) {
     res.status(500).send({ message: "Server error" });
   }
 };
 
-exports.myData = async (req, res) => {
+exports.profile = async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-      return res.status(400).send({ message: "No token provided" });
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "No token provided" });
     }
-    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-      if (err) {
-        return res.status(400).send({ message: "Invalid or expired token" });
-      }
-      const user = await User.findById(decoded.id).select("-password");
-      if (!user) {
-        return res.status(400).send({ message: "User doesn't exists" });
-      }
-      res.status(200).send({ user });
-    });
+
+    const token = authHeader.split(" ")[1];
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded) {
+      return res.status(401).json({ message: "Invalid token" });
+    }
+    const user = await User.findById(decoded.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ user });
   } catch (error) {
-    return res.status(500).send({ message: "Server error" });
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -191,6 +207,16 @@ exports.updateUser = async (req, res) => {
     const updatedUser = await user.save();
 
     res.status(200).json({ updatedUser });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find();
+    res.status(200).json(users);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
