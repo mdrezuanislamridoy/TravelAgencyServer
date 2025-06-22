@@ -1,11 +1,11 @@
 const router = require("express").Router();
-const { IsUser } = require("../middleware/JWTAuth");
+const { IsUser } = require("../../middleware/JWTAuth");
 const {
   sendFriendRequest,
   acceptFriendRequest,
   getFriendRequests,
   getFriends,
-} = require("../controllers/FriendController");
+} = require("./FriendController");
 
 router.post("/send", IsUser, sendFriendRequest);
 router.put("/accept/:requestId", IsUser, acceptFriendRequest);

@@ -10,6 +10,16 @@ const tourSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  bookings: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: "Booking",
+    default: [],
+  },
+  completedTours: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: "Booking",
+    default: [],
+  },
   createdAt: { type: Date, default: Date.now },
 });
 
